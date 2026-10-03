@@ -27,3 +27,7 @@ dist-ssr
 
 # Test files
 test-invoice.png
+
+# 本地记忆与 Agent 指令（含项目决策与操作流程，仅本地保留，不上传远程）
+PROJECT_MEMORY.md
+AGENTS.md
