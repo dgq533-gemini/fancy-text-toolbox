@@ -4,6 +4,13 @@ import Footer from '../components/Footer'
 /** 主页：展示所有工具入口 */
 const tools = [
   {
+    path: '/pixel-beads',
+    icon: '🧩',
+    title: '拼豆图纸生成器',
+    desc: '上传图片自动生成拼豆图纸，支持画布大小调节、颜色精简、珠子计数与高清打印底稿导出。',
+    tag: '手工创作',
+  },
+  {
     path: '/fancy-text',
     icon: '✨',
     title: '花体字神器',
