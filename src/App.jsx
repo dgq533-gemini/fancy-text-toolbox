@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
+import InvoiceAnonymizer from './components/InvoiceAnonymizer'
 
 // ==================== 常量与工具函数 ====================
 
@@ -86,16 +87,18 @@ export default function App() {
               在线工具箱
             </h1>
             <p className="mt-2 text-gray-500 text-sm sm:text-base">
-              花体字生成 · 极简记事本，纯前端工具，无需注册
+              花体字生成 · 极简记事本 · 发票脱敏，纯前端工具，无需注册
             </p>
           </header>
 
           {/* 标签页切换 */}
           <Tabs activeTab={activeTab} onChange={setActiveTab} />
 
-          {/* 工具内容区 */}
+          {/* 工具内容区 - 仅挂载当前工具，切换时自动卸载释放内存 */}
           <div className="mt-6">
-            {activeTab === 'fancy' ? <FancyTextTool /> : <NotepadTool />}
+            {activeTab === 'fancy' && <FancyTextTool />}
+            {activeTab === 'notepad' && <NotepadTool />}
+            {activeTab === 'invoice' && <InvoiceAnonymizer />}
           </div>
         </div>
       </main>
@@ -120,6 +123,7 @@ function Tabs({ activeTab, onChange }) {
   const tabs = [
     { id: 'fancy', label: '✨ 花体字神器' },
     { id: 'notepad', label: '📝 极简记事本' },
+    { id: 'invoice', label: '🔒 发票隐私脱敏' },
   ]
 
   return (
