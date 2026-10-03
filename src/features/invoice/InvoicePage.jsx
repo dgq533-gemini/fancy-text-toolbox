@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import BackButton from '../../components/BackButton'
+import Footer from '../../components/Footer'
 
 /**
  * 纯前端离线发票与收据脱敏裁剪器
@@ -8,7 +10,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
  * - 旋转 / 裁剪 / 下载
  * - 所有处理均在本地 Canvas 完成，不上传服务器
  */
-export default function InvoiceAnonymizer() {
+export default function InvoicePage() {
   const canvasRef = useRef(null)
   const offscreenRef = useRef(null) // 离屏画布：存储底图（不含选区框）
   const fileInputRef = useRef(null)
@@ -45,10 +47,8 @@ export default function InvoiceAnonymizer() {
     const off = offscreenRef.current
     if (!canvas || !off || !imgLoaded) return
     const ctx = canvas.getContext('2d')
-    // 用离屏底图覆盖主画布（清除旧选区框）
     ctx.drawImage(off, 0, 0)
     const lineW = Math.max(2, canvas.width / 500)
-    // 绘制已确认的选区（红色虚线框）
     selections.forEach((s) => {
       ctx.save()
       ctx.strokeStyle = '#ef4444'
@@ -57,7 +57,6 @@ export default function InvoiceAnonymizer() {
       ctx.strokeRect(s.x, s.y, s.w, s.h)
       ctx.restore()
     })
-    // 绘制正在拖动的选区（橙色虚线框）
     if (currentRect) {
       ctx.save()
       ctx.strokeStyle = '#f97316'
@@ -68,9 +67,7 @@ export default function InvoiceAnonymizer() {
     }
   }, [imgLoaded, selections, currentRect])
 
-  useEffect(() => {
-    redraw()
-  }, [redraw])
+  useEffect(() => { redraw() }, [redraw])
 
   // ---- 加载图片 ----
   const loadImageFile = useCallback((file) => {
@@ -78,8 +75,6 @@ export default function InvoiceAnonymizer() {
     const url = URL.createObjectURL(file)
     const img = new Image()
     img.onload = () => {
-      // canvas 此时可能尚未挂载（imgLoaded=false 时不渲染 canvas），
-      // 先暂存 Image，由下面的 useEffect 在 canvas 挂载后绘制
       loadedImgRef.current = img
       if (currentUrlRef.current) URL.revokeObjectURL(currentUrlRef.current)
       currentUrlRef.current = url
@@ -87,10 +82,7 @@ export default function InvoiceAnonymizer() {
       setSelections([])
       setApplied(false)
     }
-    img.onerror = () => {
-      URL.revokeObjectURL(url)
-      alert('图片加载失败，请重试')
-    }
+    img.onerror = () => { URL.revokeObjectURL(url); alert('图片加载失败，请重试') }
     img.src = url
   }, [])
 
@@ -114,7 +106,6 @@ export default function InvoiceAnonymizer() {
     e.target.value = ''
   }
 
-  // ---- 拖拽上传 ----
   const handleDragOver = (e) => { e.preventDefault(); setIsDragOver(true) }
   const handleDragLeave = (e) => { e.preventDefault(); setIsDragOver(false) }
   const handleDrop = (e) => {
@@ -127,22 +118,16 @@ export default function InvoiceAnonymizer() {
   const handleMouseDown = (e) => {
     if (!imgLoaded) return
     const { x, y } = getCanvasCoords(e)
-    setIsDragging(true)
-    setDragStart({ x, y })
-    setCurrentRect({ x, y, w: 0, h: 0 })
+    setIsDragging(true); setDragStart({ x, y }); setCurrentRect({ x, y, w: 0, h: 0 })
   }
-
   const handleMouseMove = (e) => {
     if (!isDragging || !dragStart) return
     const { x, y } = getCanvasCoords(e)
     setCurrentRect({
-      x: Math.min(dragStart.x, x),
-      y: Math.min(dragStart.y, y),
-      w: Math.abs(x - dragStart.x),
-      h: Math.abs(y - dragStart.y),
+      x: Math.min(dragStart.x, x), y: Math.min(dragStart.y, y),
+      w: Math.abs(x - dragStart.x), h: Math.abs(y - dragStart.y),
     })
   }
-
   const handleMouseUp = () => {
     if (isDragging && currentRect && currentRect.w > 5 && currentRect.h > 5) {
       setSelections((prev) => [...prev, currentRect])
@@ -150,7 +135,7 @@ export default function InvoiceAnonymizer() {
     setIsDragging(false); setDragStart(null); setCurrentRect(null)
   }
 
-  // ---- 像素级涂黑：在主画布和离屏底图上同时覆盖黑色，不可逆 ----
+  // ---- 像素级涂黑 ----
   const handleApplyBlackout = () => {
     if (!imgLoaded || selections.length === 0) return
     const canvas = canvasRef.current
@@ -159,13 +144,10 @@ export default function InvoiceAnonymizer() {
     const ctx = canvas.getContext('2d')
     const offCtx = off.getContext('2d')
     selections.forEach((s) => {
-      ctx.fillStyle = '#000000'
-      ctx.fillRect(s.x, s.y, s.w, s.h)
-      offCtx.fillStyle = '#000000'
-      offCtx.fillRect(s.x, s.y, s.w, s.h)
+      ctx.fillStyle = '#000000'; ctx.fillRect(s.x, s.y, s.w, s.h)
+      offCtx.fillStyle = '#000000'; offCtx.fillRect(s.x, s.y, s.w, s.h)
     })
-    setSelections([])
-    setApplied(true)
+    setSelections([]); setApplied(true)
   }
 
   const handleUndoSelection = () => setSelections((p) => p.slice(0, -1))
@@ -204,7 +186,7 @@ export default function InvoiceAnonymizer() {
     setSelections([])
   }
 
-  // ---- 重置：从 blob URL 重新加载原图 ----
+  // ---- 重置 ----
   const handleReset = () => {
     if (!currentUrlRef.current) return
     const img = new Image()
@@ -251,85 +233,99 @@ export default function InvoiceAnonymizer() {
   }, [])
 
   return (
-    <div className="space-y-4">
-      {/* 安全提示 */}
-      <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
-        <p className="text-red-600 text-sm font-bold leading-relaxed">
-          🔒 本工具 100% 纯前端本地处理，断网也能用，没有任何图片会上传到服务器，绝对保护您的财务与个人隐私！
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col">
+      <main className="flex-1 flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-2xl">
+          {/* 顶部导航栏 */}
+          <div className="flex items-center justify-between mb-8">
+            <BackButton />
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">
+              🔒 发票隐私脱敏
+            </h1>
+            <div className="w-24" />
+          </div>
 
-      {/* 图片上传区 */}
-      {!imgLoaded ? (
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className={`bg-white rounded-2xl border-2 border-dashed p-10 sm:p-16 text-center cursor-pointer transition-all ${
-            isDragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-          }`}
-        >
-          <div className="text-5xl mb-4">📄</div>
-          <p className="text-gray-700 font-medium mb-1">拖拽发票/收据图片到这里</p>
-          <p className="text-gray-400 text-sm">或点击此处选择文件（支持 PNG / JPG）</p>
-          <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/jpg" onChange={handleFileInput} className="hidden" />
-        </div>
-      ) : (
-        <>
-          {/* 工具栏 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-4">
-            <div className="flex flex-wrap gap-2">
-              <button onClick={handleApplyBlackout} disabled={selections.length === 0}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                  selections.length === 0 ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-red-500 text-white hover:bg-red-600 active:scale-95'
-                }`}>🔒 应用涂黑</button>
-              <button onClick={handleUndoSelection} disabled={selections.length === 0}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                  selections.length === 0 ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95'
-                }`}>↩️ 撤销选区</button>
-              <button onClick={handleClearSelections} disabled={selections.length === 0}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                  selections.length === 0 ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95'
-                }`}>🗑️ 清除选区</button>
-              <button onClick={handleRotate}
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95 transition-all">🔄 旋转90°</button>
-              <button onClick={handleCrop} disabled={selections.length === 0}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                  selections.length === 0 ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95'
-                }`}>✂️ 裁剪选区</button>
-              <button onClick={handleReset}
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95 transition-all">🔁 重置原图</button>
-              <button onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95 transition-all">📁 换一张</button>
-              <button onClick={handleDownload}
-                className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold bg-green-500 text-white hover:bg-green-600 active:scale-95 transition-all ml-auto">⬇️ 下载脱敏图片</button>
+          {/* 安全提示 */}
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-4">
+            <p className="text-red-600 text-sm font-bold leading-relaxed">
+              🔒 本工具 100% 纯前端本地处理，断网也能用，没有任何图片会上传到服务器，绝对保护您的财务与个人隐私！
+            </p>
+          </div>
+
+          {/* 图片上传区 */}
+          {!imgLoaded ? (
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`bg-white rounded-2xl border-2 border-dashed p-10 sm:p-16 text-center cursor-pointer transition-all ${
+                isDragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <div className="text-5xl mb-4">📄</div>
+              <p className="text-gray-700 font-medium mb-1">拖拽发票/收据图片到这里</p>
+              <p className="text-gray-400 text-sm">或点击此处选择文件（支持 PNG / JPG）</p>
               <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/jpg" onChange={handleFileInput} className="hidden" />
             </div>
-            {selections.length > 0 && <p className="mt-2 text-xs text-gray-400">已绘制 {selections.length} 个选区，点击「应用涂黑」销毁敏感信息</p>}
-            {applied && <p className="mt-2 text-xs text-green-600 font-medium">✅ 敏感信息已彻底涂黑，像素不可还原</p>}
-          </div>
+          ) : (
+            <div className="space-y-4">
+              {/* 工具栏 */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-4">
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={handleApplyBlackout} disabled={selections.length === 0}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                      selections.length === 0 ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-red-500 text-white hover:bg-red-600 active:scale-95'
+                    }`}>🔒 应用涂黑</button>
+                  <button onClick={handleUndoSelection} disabled={selections.length === 0}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                      selections.length === 0 ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95'
+                    }`}>↩️ 撤销选区</button>
+                  <button onClick={handleClearSelections} disabled={selections.length === 0}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                      selections.length === 0 ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95'
+                    }`}>🗑️ 清除选区</button>
+                  <button onClick={handleRotate}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95 transition-all">🔄 旋转90°</button>
+                  <button onClick={handleCrop} disabled={selections.length === 0}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                      selections.length === 0 ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95'
+                    }`}>✂️ 裁剪选区</button>
+                  <button onClick={handleReset}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95 transition-all">🔁 重置原图</button>
+                  <button onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95 transition-all">📁 换一张</button>
+                  <button onClick={handleDownload}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold bg-green-500 text-white hover:bg-green-600 active:scale-95 transition-all ml-auto">⬇️ 下载脱敏图片</button>
+                  <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/jpg" onChange={handleFileInput} className="hidden" />
+                </div>
+                {selections.length > 0 && <p className="mt-2 text-xs text-gray-400">已绘制 {selections.length} 个选区，点击「应用涂黑」销毁敏感信息</p>}
+                {applied && <p className="mt-2 text-xs text-green-600 font-medium">✅ 敏感信息已彻底涂黑，像素不可还原</p>}
+              </div>
 
-          {/* 画布区域 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-4 overflow-auto">
-            <canvas
-              ref={canvasRef}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              className="max-w-full h-auto rounded-lg cursor-crosshair select-none"
-              style={{ display: 'block', margin: '0 auto' }}
-            />
-          </div>
+              {/* 画布区域 */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-4 overflow-auto">
+                <canvas
+                  ref={canvasRef}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                  className="max-w-full h-auto rounded-lg cursor-crosshair select-none"
+                  style={{ display: 'block', margin: '0 auto' }}
+                />
+              </div>
 
-          {/* 操作提示 */}
-          <div className="text-center text-xs text-gray-400 space-y-1">
-            <p>🖱️ 在图片上按住鼠标拖动，框选需要脱敏的敏感区域</p>
-            <p>🔒 点击「应用涂黑」后，选中区域的像素将被彻底销毁，无法还原</p>
-          </div>
-        </>
-      )}
+              {/* 操作提示 */}
+              <div className="text-center text-xs text-gray-400 space-y-1">
+                <p>🖱️ 在图片上按住鼠标拖动，框选需要脱敏的敏感区域</p>
+                <p>🔒 点击「应用涂黑」后，选中区域的像素将被彻底销毁，无法还原</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+      <Footer />
     </div>
   )
 }
